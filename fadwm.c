@@ -207,6 +207,10 @@ static void seturgent(Client *c, int urg);
 static void showhide(Client *c);
 static void spawn(const Arg *arg);
 static void tag(const Arg *arg);
+static void tag_shift(const Arg *arg);
+static void tag_shift_all(const Arg *arg);
+static void tag_fshift(const Arg *arg);
+static void tag_fshift_all(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglebar(const Arg *arg);
@@ -227,6 +231,7 @@ static void updatetitle(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
 static void view(const Arg *arg);
+static void view_shift(const Arg *arg);
 static Client *wintoclient(Window w);
 static Monitor *wintomon(Window w);
 static int xerror(Display *dpy, XErrorEvent *ee);
@@ -1669,6 +1674,53 @@ tag(const Arg *arg)
 }
 
 void
+tag_shift(const Arg *arg)
+{
+    unsigned int t; 
+    if (!selmon->sel)
+        return;
+    t = selmon->sel->tags;
+    if (arg->i > 0)
+        selmon->sel->tags  = t << arg->i | t >> (LENGTH(tags) - arg->i);
+    else
+        selmon->sel->tags  = t >> (-1*arg->i) | t << (LENGTH(tags) + arg->i);
+    focus(NULL);
+    arrange(selmon);
+}
+
+void
+tag_shift_all(const Arg *arg)
+{
+    Client *c;
+    if (!selmon->clients)
+        return;
+    for (c = selmon->clients; c; c = c->next){
+        if(!ISVISIBLE(c))
+            continue;
+        focus(c);
+        tag_shift(arg); 
+    }
+}
+
+void
+tag_fshift(const Arg *arg)
+{
+    if (!selmon->sel)
+        return;
+    tag_shift(arg);
+    view_shift(arg);
+}
+
+void
+tag_fshift_all(const Arg *arg)
+{
+    if (!selmon->sel)
+        return;
+    tag_shift_all(arg);
+    view_shift(arg);
+}
+
+void
 tagmon(const Arg *arg)
 {
     if (!selmon->sel || !mons->next)
@@ -2050,6 +2102,22 @@ view(const Arg *arg)
     selmon->seltags ^= 1; /* toggle sel tagset */
     if (arg->ui & TAGMASK)
         selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+    focus(NULL);
+    arrange(selmon);
+}
+
+void
+view_shift(const Arg *arg)
+{
+    unsigned int t;
+    t = selmon->tagset[selmon->seltags];
+    if (arg->i > 0)
+        t = t << arg->i | t >> (LENGTH(tags) - arg->i);
+    else
+        t = t >> (-1*arg->i) | t << (LENGTH(tags) + arg->i);
+    selmon->seltags ^= 1; /* toggle sel tagset */
+    if (t & TAGMASK)
+        selmon->tagset[selmon->seltags] = t & TAGMASK;
     focus(NULL);
     arrange(selmon);
 }
