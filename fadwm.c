@@ -220,7 +220,10 @@ static void tag_shift_all(const Arg *arg);
 static void tag_fshift(const Arg *arg);
 static void tag_fshift_all(const Arg *arg);
 static void tagmon(const Arg *arg);
-static void tile(Monitor *m);
+static void tile_bottom(Monitor *m);
+static void tile_left(Monitor *m);
+static void tile_right(Monitor *m);
+static void tile_top(Monitor *m);
 static void trap_signal(int sig);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
@@ -1776,7 +1779,37 @@ tagmon(const Arg *arg)
 }
 
 void
-tile(Monitor *m)
+tile_bottom(Monitor *m)
+{
+    unsigned int i, n, w, mh, mx, tx;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    if (n > m->nmaster)
+        mh = m->nmaster ? m->wh * m->mfact : 0;
+    else
+        mh = m->wh;
+
+    for (i = mx = tx = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (i < m->nmaster) {
+            w = (m->ww - mx) / (MIN(n, m->nmaster) - i);
+            resize(c, m->wx + mx, m->wy, w - (2*c->bw), mh - (2*c->bw), 0);
+            if (mx + WIDTH(c) < m->ww)
+                mx += WIDTH(c);
+        } else {
+            w = (m->ww - tx) / (n - i);
+            resize(c, m->wx + tx, m->wy + mh, w - (2*c->bw), m->wh - mh - (2*c->bw), 0);
+            if (tx + WIDTH(c) < m->ww)
+                tx += WIDTH(c);
+        }
+    }
+}
+
+void
+tile_left(Monitor *m)
 {
     unsigned int i, n, h, mw, my, ty;
     Client *c;
@@ -1789,7 +1822,38 @@ tile(Monitor *m)
         mw = m->nmaster ? m->ww * m->mfact : 0;
     else
         mw = m->ww;
-    for (i = my = ty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
+
+    for (i = my = ty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (i < m->nmaster) {
+            h = (m->wh - my) / (MIN(n, m->nmaster) - i);
+            resize(c, m->wx + m->ww - mw, m->wy + my, mw - (2*c->bw), h - (2*c->bw), 0);
+            if (my + HEIGHT(c) < m->wh)
+                my += HEIGHT(c);
+        } else {
+            h = (m->wh - ty) / (n - i);
+            resize(c, m->wx, m->wy + ty, m->ww - mw - (2*c->bw), h - (2*c->bw), 0);
+            if (ty + HEIGHT(c) < m->wh)
+                ty += HEIGHT(c);
+        }
+    }
+}
+
+void
+tile_right(Monitor *m)
+{
+    unsigned int i, n, h, mw, my, ty;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    if (n > m->nmaster)
+        mw = m->nmaster ? m->ww * m->mfact : 0;
+    else
+        mw = m->ww;
+
+    for (i = my = ty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
         if (i < m->nmaster) {
             h = (m->wh - my) / (MIN(n, m->nmaster) - i);
             resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), 0);
@@ -1801,6 +1865,37 @@ tile(Monitor *m)
             if (ty + HEIGHT(c) < m->wh)
                 ty += HEIGHT(c);
         }
+    }
+}
+
+void
+tile_top(Monitor *m)
+{
+    unsigned int i, n, w, mh, mx, tx;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    if (n > m->nmaster)
+        mh = m->nmaster ? m->wh * m->mfact : 0;
+    else
+        mh = m->wh;
+
+    for (i = mx = tx = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (i < m->nmaster) {
+            w = (m->ww - mx) / (MIN(n, m->nmaster) - i);
+            resize(c, m->wx + mx, m->wy + m->wh - mh, w - (2*c->bw), mh - (2*c->bw), 0);
+            if (mx + WIDTH(c) < m->ww)
+                mx += WIDTH(c);
+        } else {
+            w = (m->ww - tx) / (n - i);
+            resize(c, m->wx + tx, m->wy, w - (2*c->bw), m->wh - mh - (2*c->bw), 0);
+            if (tx + WIDTH(c) < m->ww)
+                tx += WIDTH(c);
+        }
+    }
 }
 
 void
