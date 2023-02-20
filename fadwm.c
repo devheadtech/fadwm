@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <X11/cursorfont.h>
@@ -62,7 +63,7 @@ enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum { SchemeNorm, SchemeSel }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
-       NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+       NetWMWindowTypeDialog, NetClientList, NetClientInfo, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
@@ -98,6 +99,11 @@ struct Client {
     Monitor *mon;
     Window win;
 };
+
+typedef struct client_data_s {
+    unsigned int tags;
+    int mon; /* monitor number */
+}Client_Data;
 
 typedef struct {
     unsigned int mod;
@@ -193,7 +199,9 @@ static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
+static void restart(const Arg *arg);
 static void run(void);
+static void save_client_data(Client *c);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
 static void sendmon(Client *c, Monitor *m);
@@ -213,6 +221,7 @@ static void tag_fshift(const Arg *arg);
 static void tag_fshift_all(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
+static void trap_signal(int sig);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
 static void toggletag(const Arg *arg);
@@ -223,6 +232,7 @@ static void unmapnotify(XEvent *e);
 static void updatebarpos(Monitor *m);
 static void updatebars(void);
 static void updateclientlist(void);
+static void update_client_data(Client *c);
 static int updategeom(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
@@ -264,8 +274,8 @@ static void (*handler[LASTEvent]) (XEvent *) = {
     [PropertyNotify] = propertynotify,
     [UnmapNotify] = unmapnotify
 };
+static volatile int running = 1;
 static Atom wmatom[WMLast], netatom[NetLast];
-static int running = 1;
 static Cur *cursor[CurLast];
 static Clr **scheme;
 static Display *dpy;
@@ -460,6 +470,13 @@ buttonpress(XEvent *e)
         if (click == buttons[i].click && buttons[i].func && buttons[i].button == ev->button
         && CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state))
             buttons[i].func(click == ClkTagBar && buttons[i].arg.i == 0 ? &arg : &buttons[i].arg);
+}
+
+void
+trap_signal(int sig)
+{
+    /* fixme - requires XEvent to complete quit */
+    running = 0;
 }
 
 void
@@ -1073,6 +1090,7 @@ manage(Window w, XWindowAttributes *wa)
     updatewindowtype(c);
     updatesizehints(c);
     updatewmhints(c);
+    update_client_data(c);
     XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
     grabbuttons(c, 0);
     if (!c->isfloating)
@@ -1090,6 +1108,7 @@ manage(Window w, XWindowAttributes *wa)
     c->mon->sel = c;
     arrange(c->mon);
     XMapWindow(dpy, c->win);
+    save_client_data(c);
     focus(NULL);
 }
 
@@ -1385,14 +1404,30 @@ restack(Monitor *m)
 }
 
 void
+restart(const Arg *arg)
+{
+    running = -1;
+}
+
+void
 run(void)
 {
     XEvent ev;
     /* main event loop */
     XSync(dpy, False);
-    while (running && !XNextEvent(dpy, &ev))
+
+    /* fixme - slave to blocking libx11 call */
+    while (1==running && !XNextEvent(dpy, &ev))
         if (handler[ev.type])
             handler[ev.type](&ev); /* call handler */
+}
+
+void
+save_client_data(Client *c)
+{
+    Client_Data data = { .tags = c->tags, .mon = c->mon->num };
+    XChangeProperty(dpy, c->win, netatom[NetClientInfo], XA_CARDINAL, 8, \
+                    PropModeReplace, (unsigned char *)&data, sizeof(Client_Data));
 }
 
 void
@@ -1549,6 +1584,13 @@ setup(void)
     Atom utf8string;
     struct sigaction sa;
 
+    /* clean up properly if terminated */
+    sigemptyset(&sa.sa_mask);
+    sa.sa_handler = trap_signal;
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
+
     /* do not transform children into zombies when they terminate */
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_NOCLDSTOP | SA_NOCLDWAIT | SA_RESTART;
@@ -1584,6 +1626,7 @@ setup(void)
     netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
     netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
     netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
+    netatom[NetClientInfo] = XInternAtom(dpy, "_NET_CLIENT_INFO", False);
     /* init cursors */
     cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
     cursor[CurResize] = drw_cur_create(drw, XC_sizing);
@@ -1607,6 +1650,7 @@ setup(void)
     XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
         PropModeReplace, (unsigned char *) netatom, NetLast);
     XDeleteProperty(dpy, root, netatom[NetClientList]);
+    XDeleteProperty(dpy, root, netatom[NetClientInfo]);
     /* select events */
     wa.cursor = cursor[CurNormal]->cursor;
     wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask
@@ -1668,6 +1712,7 @@ tag(const Arg *arg)
 {
     if (selmon->sel && arg->ui & TAGMASK) {
         selmon->sel->tags = arg->ui & TAGMASK;
+        save_client_data(selmon->sel);
         focus(NULL);
         arrange(selmon);
     }
@@ -1684,6 +1729,7 @@ tag_shift(const Arg *arg)
         selmon->sel->tags  = t << arg->i | t >> (LENGTH(tags) - arg->i);
     else
         selmon->sel->tags  = t >> (-1*arg->i) | t << (LENGTH(tags) + arg->i);
+    save_client_data(selmon->sel);
     focus(NULL);
     arrange(selmon);
 }
@@ -1726,6 +1772,7 @@ tagmon(const Arg *arg)
     if (!selmon->sel || !mons->next)
         return;
     sendmon(selmon->sel, dirtomon(arg->i));
+    save_client_data(selmon->sel);
 }
 
 void
@@ -1790,6 +1837,7 @@ toggletag(const Arg *arg)
     if (newtags) {
         selmon->sel->tags = newtags;
         focus(NULL);
+        save_client_data(selmon->sel);
         arrange(selmon);
     }
 }
@@ -1895,7 +1943,32 @@ updatebarpos(Monitor *m)
 }
 
 void
-updateclientlist()
+update_client_data(Client *c)
+{
+    int format;
+    unsigned long n, extra;
+    Client_Data *data;
+    Monitor *m;
+    Atom atom;
+
+    if (Success == XGetWindowProperty(dpy, c->win, netatom[NetClientInfo], 0L, 
+            ceil(sizeof(Client_Data)/4), False, XA_CARDINAL, &atom, &format, &n,
+            &extra, (unsigned char **)&data) && n == sizeof(Client_Data)) 
+    {
+        c->tags = data->tags;
+        for (m = mons; m; m = m->next) {
+            if (m->num == data->mon) {
+                c->mon = m;
+                break;
+            }
+        }
+    }
+    if (n > 0)
+        XFree(data);
+}
+
+void
+updateclientlist(void)
 {
     Client *c;
     Monitor *m;
@@ -2221,5 +2294,8 @@ main(int argc, char *argv[])
     run();
     cleanup();
     XCloseDisplay(dpy);
+    fflush(NULL);
+    if (-1 == running)
+        execvp(argv[0], argv);
     return EXIT_SUCCESS;
 }
