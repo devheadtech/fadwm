@@ -155,6 +155,8 @@ static void arrangemon(Monitor *m);
 static void attach(Client *c);
 static void attachstack(Client *c);
 static void buttonpress(XEvent *e);
+static void center(Monitor *m);
+static void center_float(Monitor *m);
 static void checkotherwm(void);
 static void cleanup(void);
 static void cleanupmon(Monitor *mon);
@@ -480,6 +482,91 @@ trap_signal(int sig)
 {
     /* fixme - requires XEvent to complete quit */
     running = 0;
+}
+
+void
+center(Monitor *m)
+{
+    unsigned int i, n, h, lt, rt, mw, tw, my, lty, rty;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    if (n > m->nmaster)
+        mw = m->nmaster ? m->ww * m->mfact : 0;
+    else
+        mw = m->ww;
+
+    tw = (m->ww - mw)/2;
+    lt = MAX(1,(n - m->nmaster + 1)/2);
+    rt = MAX(1,(n - m->nmaster)/2);
+
+    for (i = my = lty = rty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (i < m->nmaster) {
+            h = (m->wh - my) / (MIN(n, m->nmaster) - i);
+            resize(c, m->wx + tw , m->wy + my, mw - (2*c->bw), h - (2*c->bw), 0);
+            if (my + HEIGHT(c) < m->wh)
+                my += HEIGHT(c);
+        } else if (i < m->nmaster + lt) {
+            h = m->wh / lt;
+            resize(c, m->wx, m->wy + lty, 
+                     tw - (2*c->bw), h - (2*c->bw), 0);
+            if (lty + HEIGHT(c) < m->wh)
+                lty += HEIGHT(c);
+        } else {
+            h = m->wh / rt;
+            resize(c, m->wx + tw + mw, m->wy + rty, 
+                     tw - (2*c->bw), h - (2*c->bw), 0);
+            if (rty + HEIGHT(c) < m->wh)
+                rty += HEIGHT(c);
+        }
+    }
+}
+
+void
+center_float(Monitor *m)
+{
+    unsigned int i, n, h, lt, rt, mw, mh, tw, my, lty, rty;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    if (n > m->nmaster) {
+        mw = m->nmaster ? m->ww * m->mfact : 0;
+        mh = m->nmaster ? m->wh * 0.95 : 0;
+    } else {
+        mw = m->ww;
+        mh = m->wh;
+    }
+
+    tw = m->ww/2;
+    lt = MAX(1,(n - m->nmaster + 1)/2);
+    rt = MAX(1,(n - m->nmaster)/2);
+
+    for (i = my = lty = rty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        if (i < m->nmaster) {
+            h = (mh - my) / (MIN(n, m->nmaster) - i);
+            resize(c, m->wx+(m->ww-mw)/2, m->wy + (m->wh-mh)/2 + my, mw - (2*c->bw), h - (2*c->bw), 0);
+            if (my + HEIGHT(c) < m->wh)
+                my += HEIGHT(c);
+        } else if (i < m->nmaster + lt) {
+            h = m->wh / lt;
+            resize(c, m->wx, m->wy + lty, 
+                     tw - (2*c->bw), h - (2*c->bw), 0);
+            if (lty + HEIGHT(c) < m->wh)
+                lty += HEIGHT(c);
+        } else {
+            h = m->wh / rt;
+            resize(c, m->wx + tw, m->wy + rty, 
+                     tw - (2*c->bw), h - (2*c->bw), 0);
+            if (rty + HEIGHT(c) < m->wh)
+                rty += HEIGHT(c);
+        }
+    }
 }
 
 void
