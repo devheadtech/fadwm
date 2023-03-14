@@ -32,7 +32,7 @@ static const Rule rules[] = {
 };
 
 /* layout(s) */
-static const float mfact     = 0.55; /* factor of master area size [0.05..0.95] */
+static const float mfact     = 0.50; /* factor of master area size [0.05..0.95] */
 static const int nmaster     = 1;    /* number of clients in master area */
 static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
 static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
@@ -43,6 +43,8 @@ static const Layout layouts[] = {
     { "[]=",      tile_right },
     { "v=",       tile_bottom },
     { "=^",       tile_top },
+    { "|[]|",     center },
+    { ">[]<",     center_float },
     { "[M]",      monocle },
     { "><>",      NULL },    /* no layout function means floating behavior */
 };
@@ -81,8 +83,9 @@ static const Key keys[] = {
     { MODKEY|ShiftMask,             XK_t,      setlayout,      {.v = &layouts[1]} },
     { MODKEY,                       XK_s,      setlayout,      {.v = &layouts[2]} },
     { MODKEY|ShiftMask,             XK_s,      setlayout,      {.v = &layouts[3]} },
-    { MODKEY,                       XK_f,      setlayout,      {.v = &layouts[4]} },
-    { MODKEY,                       XK_m,      setlayout,      {.v = &layouts[5]} },
+    { MODKEY,                       XK_c,      setlayout,      {.v = &layouts[4]} },
+    { MODKEY,                       XK_f,      setlayout,      {.v = &layouts[5]} },
+    { MODKEY,                       XK_m,      setlayout,      {.v = &layouts[6]} },
     { MODKEY,                       XK_space,  setlayout,      {0} },
     { MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
     { MODKEY,                       XK_0,      view,           {.ui = ~0 } },
