@@ -45,7 +45,9 @@ static const Layout layouts[] = {
     { "=^",       tile_top },
     { "|[]|",     center },
     { ">[]<",     center_float },
-    { "[M]",      monocle },
+    { "[@]",      spiral },
+    { "[d]",      dwindle },
+    { "[m]",      monocle },
     { "><>",      NULL },    /* no layout function means floating behavior */
 };
 
@@ -78,14 +80,16 @@ static const Key keys[] = {
     { MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
     { MODKEY,                       XK_Return, zoom,           {0} },
     { MODKEY,                       XK_Tab,    view,           {0} },
-    { MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
-    { MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
-    { MODKEY|ShiftMask,             XK_t,      setlayout,      {.v = &layouts[1]} },
-    { MODKEY,                       XK_s,      setlayout,      {.v = &layouts[2]} },
-    { MODKEY|ShiftMask,             XK_s,      setlayout,      {.v = &layouts[3]} },
-    { MODKEY,                       XK_c,      setlayout,      {.v = &layouts[4]} },
-    { MODKEY,                       XK_f,      setlayout,      {.v = &layouts[5]} },
-    { MODKEY,                       XK_m,      setlayout,      {.v = &layouts[6]} },
+    { MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} }, // tile left
+    { MODKEY|ShiftMask,             XK_t,      setlayout,      {.v = &layouts[1]} }, // tile right
+    { MODKEY,                       XK_s,      setlayout,      {.v = &layouts[2]} }, // tile bottom
+    { MODKEY|ShiftMask,             XK_s,      setlayout,      {.v = &layouts[3]} }, // tile top
+    { MODKEY,                       XK_c,      setlayout,      {.v = &layouts[4]} }, // center
+    { MODKEY|ShiftMask,             XK_c,      setlayout,      {.v = &layouts[5]} }, // center float
+    { MODKEY,                       XK_f,      setlayout,      {.v = &layouts[6]} }, // spiral (fibonacci) 
+    { MODKEY|ShiftMask,             XK_f,      setlayout,      {.v = &layouts[7]} }, // dwindle (fibonacci)
+    { MODKEY,                       XK_m,      setlayout,      {.v = &layouts[8]} }, // monocle
+    { MODKEY,                       XK_w,      setlayout,      {.v = &layouts[9]} }, // float (windows)
     { MODKEY,                       XK_space,  setlayout,      {0} },
     { MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
     { MODKEY,                       XK_0,      view,           {.ui = ~0 } },
@@ -113,6 +117,7 @@ static const Key keys[] = {
     TAGKEYS(                        XK_7,                      6)
     TAGKEYS(                        XK_8,                      7)
     TAGKEYS(                        XK_9,                      8)
+    { MODKEY,                       XK_q,      killclient,     {0} },
     { MODKEY|ShiftMask,             XK_r,      restart,        {0} },
     { MODKEY|ShiftMask,             XK_q,      quit,           {0} },
 };

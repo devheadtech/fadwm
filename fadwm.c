@@ -171,6 +171,7 @@ static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
 static void drawbar(Monitor *m);
 static void drawbars(void);
+static void dwindle(Monitor *m);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
@@ -203,6 +204,7 @@ static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
 static void restart(const Arg *arg);
 static void run(void);
+static void spiral(Monitor *m);
 static void save_client_data(Client *c);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
@@ -870,6 +872,35 @@ drawbars(void)
 }
 
 void
+dwindle(Monitor *m)
+{
+    unsigned int i, n, h, w, nw, nh, x, y, nx, ny;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    nw = m->ww; nh =  m->wh;
+    for (i = x = y = nx = ny = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        x = nx; y = ny; 
+        w = nw; h = nh;
+        if (i+1 < n) {
+            if(i & 0x1) {
+                h  = m->mfact * nh;
+                nh -= h;
+                ny = y + h;
+            } else {
+                w  = m->mfact * nw;
+                nw = nw - w;
+                nx = x + w;
+            }
+        }
+        resize(c, m->wx + x, m->wy + y, w - (2*c->bw), h - (2*c->bw), 0);
+    }
+}
+
+void
 enternotify(XEvent *e)
 {
     Client *c;
@@ -896,6 +927,46 @@ expose(XEvent *e)
 
     if (ev->count == 0 && (m = wintomon(ev->window)))
         drawbar(m);
+}
+
+void
+spiral(Monitor *m)
+{
+    unsigned int i, n, h, w, nw, nh, x, y, nx, ny;
+    Client *c;
+
+    for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+    if (n == 0)
+        return;
+
+    nw = m->ww; nh =  m->wh;
+    for (i = x = y = nx = ny = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++) {
+        x = nx; y = ny; 
+        w = nw; h = nh;
+        if (i+1 < n) {
+            if(i & 0x1) {
+                h  = m->mfact * nh;
+                nh -= h;
+            } else {
+                w  = m->mfact * nw;
+                nw = nw - w;
+            }
+
+            if ((i%4) == 0) {
+                nx = x + w;
+            } else if ((i%4) == 1) {
+                ny = y + h;
+            } else if ((i%4) == 2) {
+                nx = x;
+                x += nw;
+            } else if ((i%4) == 3) {
+                ny = y;
+                y += nh;
+            } 
+
+        }
+        resize(c, m->wx + x, m->wy + y, w - (2*c->bw), h - (2*c->bw), 0);
+    }
 }
 
 void
